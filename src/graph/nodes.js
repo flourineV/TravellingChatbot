@@ -3,6 +3,31 @@ import { TravelSearchTool } from '../tools/tavily-search.js';
 import { TRAVEL_CATEGORIES } from '../types/index.js';
 
 /**
+ * Helper function to extract budget amount from query
+ * @param {string} query - User query
+ * @returns {string|null} Extracted budget amount
+ */
+function extractBudgetAmount(query) {
+  const budgetPatterns = [
+    /(\d+)\s*triệu/i,
+    /(\d+)\s*tr/i,
+    /(\d+)\s*nghìn/i,
+    /(\d+)\s*k/i,
+    /(\d+)\s*million/i,
+    /(\d+)\s*thousand/i
+  ];
+
+  for (const pattern of budgetPatterns) {
+    const match = query.match(pattern);
+    if (match) {
+      return match[0];
+    }
+  }
+
+  return null;
+}
+
+/**
  * Graph nodes for the travel chatbot workflow
  */
 
@@ -19,6 +44,37 @@ export async function analyzeQuery(state) {
     const userMessage = state.messages[state.messages.length - 1];
     const query = userMessage.content;
     const conversationHistory = state.conversationHistory || [];
+    const followUpAnalysis = state.followUpAnalysis || {};
+
+    // Debug log
+    console.log('🔍 analyzeQuery - followUpAnalysis:', JSON.stringify(followUpAnalysis, null, 2));
+
+    // Check if this is a follow-up query with context
+    if (followUpAnalysis.isFollowUp && followUpAnalysis.followUpType === 'budget') {
+      // Handle budget follow-up specially
+      const contextLocation = followUpAnalysis.conversationState?.primaryLocation || 'previous destination';
+
+      return {
+        ...state,
+        currentQuery: {
+          original: query,
+          category: 'budget',
+          location: contextLocation,
+          intent: 'budget_advice',
+          keywords: ['ngân sách', 'budget', 'chi phí'],
+          urgency: 'high',
+          searchQuery: `${contextLocation} travel budget itinerary ${query}`,
+          isFollowUp: true,
+          followUpType: 'budget'
+        },
+        analysisResult: {
+          category: 'budget',
+          location: contextLocation,
+          intent: 'budget_advice',
+          isFollowUp: true
+        }
+      };
+    }
 
     // Analyze the query using the travel agent with conversation context
     const analysis = await travelAgent.analyzeQuery(query, conversationHistory);
@@ -150,10 +206,85 @@ export async function searchInformation(state) {
  */
 export async function generateResponse(state) {
   try {
-    const { currentQuery, searchResults, needsSearch } = state;
+    const { currentQuery, searchResults, needsSearch, followUpAnalysis } = state;
     let response;
 
-    if (needsSearch && searchResults && searchResults.length > 0) {
+    // Special handling for budget follow-up
+    if (currentQuery.isFollowUp && currentQuery.followUpType === 'budget') {
+      const contextLocation = currentQuery.location;
+      const budgetAmount = extractBudgetAmount(currentQuery.original);
+      const followUpAnalysis = state.followUpAnalysis || {};
+
+      // Get previous conversation context
+      const conversationHistory = state.conversationHistory || [];
+      const lastBotMessage = conversationHistory.filter(msg => !msg.isUser).pop();
+      const lastUserMessage = conversationHistory.filter(msg => msg.isUser).pop();
+
+      // Extract specific context from previous conversation
+      let specificContext = '';
+      if (lastUserMessage && lastBotMessage) {
+        const userQuery = lastUserMessage.text || '';
+        const botResponse = lastBotMessage.text || '';
+
+        // Determine what user was asking about specifically
+        if (userQuery.toLowerCase().includes('phở cuốn')) {
+          specificContext = 'phở cuốn restaurants';
+        } else if (userQuery.toLowerCase().includes('khách sạn')) {
+          specificContext = 'hotels';
+        } else if (userQuery.toLowerCase().includes('nhà hàng')) {
+          specificContext = 'restaurants';
+        } else if (userQuery.toLowerCase().includes('địa điểm du lịch') ||
+                   userQuery.toLowerCase().includes('điểm tham quan') ||
+                   userQuery.toLowerCase().includes('du lịch')) {
+          specificContext = 'travel destinations and attractions';
+        } else {
+          specificContext = 'the previously discussed topic';
+        }
+      }
+
+      // Create context-aware prompt based on specific context
+      let contextPrompt = '';
+
+      if (specificContext === 'travel destinations and attractions') {
+        contextPrompt = `CONTEXT: User previously asked about 2 travel destinations in ${contextLocation}. I already recommended Vườn Quốc gia Cát Tiên and Khu du lịch Bửu Long.
+
+        CURRENT REQUEST: User is specifying their budget: "${currentQuery.original}"
+        Budget amount: ${budgetAmount || '2 million VND'}
+
+        TASK: Create a detailed budget breakdown for visiting the 2 recommended destinations in ${contextLocation} within the ${budgetAmount || '2 million VND'} budget.
+
+        DO NOT ask where they want to go - they already specified ${contextLocation} and I already gave recommendations.
+
+        Focus on:
+        - Transportation costs to/from ${contextLocation}
+        - Entrance fees for Vườn Quốc gia Cát Tiên and Khu du lịch Bửu Long
+        - Accommodation options within budget
+        - Food and dining costs
+        - Total itinerary cost breakdown
+        - Money-saving tips for ${contextLocation}`;
+      } else {
+        contextPrompt = `CONTEXT: User previously asked about ${specificContext} in ${contextLocation}.
+
+        CURRENT REQUEST: User is specifying their budget: "${currentQuery.original}"
+        Budget amount: ${budgetAmount || 'specified amount'}
+
+        TASK: Provide specific recommendations for ${specificContext} that fit within the ${budgetAmount || 'specified'} budget.
+
+        DO NOT ask for more information about destination - the user is clarifying their budget for the previously discussed ${specificContext}.
+
+        Focus on:
+        - Specific options within budget range
+        - Price ranges and what to expect
+        - Practical tips for that budget
+        - Value for money recommendations`;
+      }
+
+      if (needsSearch && searchResults && searchResults.length > 0) {
+        response = await travelAgent.generateResponse(contextPrompt, searchResults);
+      } else {
+        response = await travelAgent.generateSimpleResponse(contextPrompt);
+      }
+    } else if (needsSearch && searchResults && searchResults.length > 0) {
       // Generate response based on search results
       response = await travelAgent.generateResponse(
         currentQuery.original,

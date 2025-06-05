@@ -6,9 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test-demo.js",
-    "test:strict": "node test-strict-demo.js",
-    "setup-check": "node test-structure.js"
+    "test": "node test/test-simple.js",
+    "test:api": "node test/test-api-examples.js",
+    "test:memory": "node test/test-conversation-memory.js",
+    "test:cache": "node test/test-memory-cache.js"
   },
   "author": "",
   "license": "ISC",

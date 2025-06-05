@@ -4,6 +4,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TravelChatbotApp } from './src/index.js';
+import { requestCache } from './src/memory/request-cache.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +43,8 @@ async function initializeChatbot() {
 
 // API Routes
 app.post('/api/chat', async (req, res) => {
+  const startTime = Date.now();
+
   try {
     if (!isInitialized) {
       return res.json({
@@ -62,35 +65,103 @@ app.post('/api/chat', async (req, res) => {
     // Generate session ID if not provided (for web clients)
     const clientSessionId = sessionId || `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Use memory-based conversation instead of external history
-    // External history is now only fallback for first message
+    // Check cache first
+    const cachedResponse = requestCache.getCachedResponse(message, { sessionId: clientSessionId });
+    if (cachedResponse) {
+      const responseTime = Date.now() - startTime;
+
+      // Add to history for tracing
+      requestCache.addToHistory(clientSessionId,
+        { message, sessionId: clientSessionId, responseTime },
+        cachedResponse
+      );
+
+      return res.json(cachedResponse);
+    }
+
+    // Process message
     const result = await chatbotApp.processMessage(message, history, clientSessionId);
+    const responseTime = Date.now() - startTime;
+
+    // Cache successful responses
+    if (result.success) {
+      requestCache.cacheResponse(message, result, { sessionId: clientSessionId });
+    }
+
+    // Add to history for tracing
+    requestCache.addToHistory(clientSessionId,
+      { message, sessionId: clientSessionId, responseTime },
+      result
+    );
 
     res.json({
       success: true,
       response: result.response,
       metadata: {
         ...result.metadata,
-        sessionId: clientSessionId
+        sessionId: clientSessionId,
+        responseTime: responseTime
       }
     });
 
   } catch (error) {
     console.error('❌ Chat API error:', error.message);
-    res.json({
+    const responseTime = Date.now() - startTime;
+
+    const errorResponse = {
       success: false,
       error: 'Xin lỗi, tôi gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại.'
-    });
+    };
+
+    // Add error to history
+    const { message, sessionId } = req.body;
+    if (message && sessionId) {
+      requestCache.addToHistory(sessionId,
+        { message, sessionId, responseTime },
+        errorResponse
+      );
+    }
+
+    res.json(errorResponse);
   }
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
+  const cacheStats = requestCache.getCacheStats();
   res.json({
     status: 'ok',
     initialized: isInitialized,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    cache: cacheStats
   });
+});
+
+// Cache statistics
+app.get('/api/cache/stats', (req, res) => {
+  res.json(requestCache.getCacheStats());
+});
+
+// Session analytics
+app.get('/api/session/:sessionId/analytics', (req, res) => {
+  const { sessionId } = req.params;
+  const analytics = requestCache.getSessionAnalytics(sessionId);
+  res.json(analytics);
+});
+
+// Session history
+app.get('/api/session/:sessionId/history', (req, res) => {
+  const { sessionId } = req.params;
+  const { limit = 20 } = req.query;
+  const history = requestCache.getHistory(sessionId, parseInt(limit));
+  res.json({ sessionId, history });
+});
+
+// Clear cache
+app.post('/api/cache/clear', (req, res) => {
+  const { pattern } = req.body;
+  requestCache.clearCache(pattern);
+  res.json({ success: true, message: 'Cache cleared' });
 });
 
 // Serve the main page

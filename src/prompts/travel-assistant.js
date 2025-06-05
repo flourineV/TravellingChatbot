@@ -130,7 +130,7 @@ COMPREHENSIVE DETECTION: Look for these travel-related keywords:
 - **Attractions:** "điểm tham quan", "có gì hay", "đi đâu", "attractions", "sightseeing", "gần"
 - **Weather:** "thời tiết", "weather", "mùa nào", "mặc gì"
 - **Transport:** "di chuyển", "đi bằng gì", "transportation", "flight", "train"
-- **Budget:** "giá", "chi phí", "budget", "tiết kiệm", "bao nhiêu tiền"
+- **Budget:** "giá", "chi phí", "budget", "tiết kiệm", "bao nhiêu tiền", "ngân sách", "triệu", "nghìn", "đồng", "VND", "tiền"
 - **Safety:** "an toàn", "chuẩn bị", "lưu ý", "cần gì"
 - **Itinerary:** "lịch trình", "kế hoạch", "plan", "[số] ngày", "du lịch"
 
@@ -152,6 +152,9 @@ CONVERSATION CONTEXT: Use the conversation history to understand:
 - If user is continuing a previous topic (e.g., "thêm thông tin về đó", "còn gì nữa không?")
 - If user is asking follow-up questions about a destination mentioned before
 - If user is refining their travel plans based on previous suggestions
+- **BUDGET FOLLOW-UPS:** If previous message mentioned travel destinations and current message mentions budget/money (e.g., "tôi chỉ có 3 triệu", "ngân sách ít", "giá rẻ thôi"), this is a BUDGET travel query
+- **STANDALONE BUDGET:** Even without context, budget mentions like "tôi có ngân sách X triệu" are travel-related if they imply travel planning
+- **CONTEXT CONTINUATION:** Any message that references previous travel discussion should be treated as travel-related
 
 If the query is NOT clearly travel-related, respond with:
 {{
@@ -173,6 +176,15 @@ Examples:
 }
 
 {
+  "category": "budget",
+  "location": "Đồng Nai",
+  "intent": "budget_advice",
+  "keywords": ["3 triệu", "ngân sách", "chi phí"],
+  "urgency": "high",
+  "searchQuery": "Đồng Nai travel budget 3 million VND itinerary"
+}
+
+{
   "category": "general",
   "location": "",
   "intent": "greeting",
@@ -183,6 +195,8 @@ Examples:
 
 Valid categories: food, accommodation, attractions, weather, transportation, budget, safety, itinerary, general
 Valid intents: restaurant_recommendation, hotel_search, attraction_info, weather_check, transport_info, budget_advice, safety_tips, create_itinerary, greeting, general_advice
+
+**IMPORTANT:** Budget-related queries (mentioning money amounts, costs, pricing) should ALWAYS be categorized as "budget" even without explicit destination context.
 Prioritize specific categories over "general" when keywords match clearly.`;
 
 export const SEARCH_QUERY_GENERATION_PROMPT = `Based on the analyzed travel query, generate an optimized search query for finding the most relevant and current information.

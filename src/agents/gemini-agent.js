@@ -242,7 +242,7 @@ Assistant:`;
     }
 
     // Valid travel categories
-    const validCategories = ['food', 'accommodation', 'attractions', 'weather', 'transportation', 'itinerary', 'general'];
+    const validCategories = ['food', 'accommodation', 'attractions', 'weather', 'transportation', 'itinerary', 'general', 'budget', 'safety'];
 
     // Check if category is travel-related
     if (!validCategories.includes(analysis.category)) {

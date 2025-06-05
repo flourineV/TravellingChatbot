@@ -424,6 +424,7 @@ export class ConversationMemory {
       topic: ['thế nào', 'như thế nào', 'how about', 'what about'],
       continuation: ['còn gì', 'gì khác', 'what else', 'anything else'],
       details: ['giá cả', 'chi phí', 'cost', 'price', 'bao nhiêu'],
+      budget: ['ngân sách', 'budget', 'triệu', 'nghìn', 'tiền', 'giá rẻ', 'tiết kiệm', 'ít tiền'],
       timing: ['thời gian', 'giờ mở cửa', 'hours', 'when'],
       transport: ['cách đi', 'di chuyển', 'how to get', 'transportation'],
       clarification: ['đúng không', 'phải không', 'right?', 'correct?']
@@ -441,7 +442,20 @@ export class ConversationMemory {
       }
     });
 
-    const isFollowUp = followUpType !== null;
+    let isFollowUp = followUpType !== null;
+
+    // Special case: Budget follow-up detection
+    // If previous conversation mentioned travel destinations and current query mentions budget
+    if (!isFollowUp && context.recentLocations.length > 0) {
+      const budgetIndicators = ['triệu', 'nghìn', 'ngân sách', 'budget', 'tiền', 'chi phí'];
+      const hasBudgetMention = budgetIndicators.some(indicator => query.includes(indicator));
+
+      if (hasBudgetMention) {
+        followUpType = 'budget';
+        confidence = 1;
+        isFollowUp = true;
+      }
+    }
 
     return {
       isFollowUp,
@@ -485,6 +499,8 @@ export class ConversationMemory {
         return `Location context: ${suggestions.location}`;
       case 'details':
         return `Budget context: ${suggestions.budget || 'not specified'}`;
+      case 'budget':
+        return `Budget planning for: ${suggestions.location || 'previous destination'}`;
       case 'continuation':
         return `Topic context: ${suggestions.lastTopic}`;
       default:

@@ -1,5 +1,5 @@
-import { TravelChatbot } from './src/graph/travel-workflow.js';
-import { conversationMemory } from './src/memory/conversation-memory.js';
+import { TravelChatbot } from '../src/graph/travel-workflow.js';
+import { conversationMemory } from '../src/memory/conversation-memory.js';
 
 /**
  * Test conversation memory and context tracing
