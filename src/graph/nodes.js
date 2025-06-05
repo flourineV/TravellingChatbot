@@ -18,9 +18,10 @@ export async function analyzeQuery(state) {
   try {
     const userMessage = state.messages[state.messages.length - 1];
     const query = userMessage.content;
+    const conversationHistory = state.conversationHistory || [];
 
-    // Analyze the query using the travel agent
-    const analysis = await travelAgent.analyzeQuery(query);
+    // Analyze the query using the travel agent with conversation context
+    const analysis = await travelAgent.analyzeQuery(query, conversationHistory);
 
     return {
       ...state,
@@ -82,7 +83,10 @@ export async function decideSearchNeeded(state) {
       TRAVEL_CATEGORIES.ACCOMMODATION,
       TRAVEL_CATEGORIES.ATTRACTIONS,
       TRAVEL_CATEGORIES.WEATHER,
-      TRAVEL_CATEGORIES.TRANSPORTATION
+      TRAVEL_CATEGORIES.TRANSPORTATION,
+      TRAVEL_CATEGORIES.BUDGET,
+      TRAVEL_CATEGORIES.SAFETY,
+      TRAVEL_CATEGORIES.ITINERARY
     ];
 
     // Check if search is needed based on category and query content
@@ -202,7 +206,7 @@ export async function checkFollowUp(state) {
     }
 
     // Check if no location was specified for location-dependent queries
-    if ([TRAVEL_CATEGORIES.FOOD, TRAVEL_CATEGORIES.ACCOMMODATION, TRAVEL_CATEGORIES.ATTRACTIONS]
+    if ([TRAVEL_CATEGORIES.FOOD, TRAVEL_CATEGORIES.ACCOMMODATION, TRAVEL_CATEGORIES.ATTRACTIONS, TRAVEL_CATEGORIES.BUDGET]
         .includes(currentQuery.category) && !currentQuery.location) {
       needsMoreInfo = true;
     }

@@ -48,11 +48,13 @@ export class TravelChatbotApp {
   }
 
   /**
-   * Process a user message
+   * Process a user message with session support
    * @param {string} message - User message
+   * @param {Array} history - Conversation history (optional, fallback only)
+   * @param {string} sessionId - Session identifier for memory tracking
    * @returns {Promise<Object>} Response object
    */
-  async processMessage(message) {
+  async processMessage(message, history = [], sessionId = 'default') {
     if (!this.isInitialized) {
       throw new Error('Chatbot not initialized. Call initialize() first.');
     }
@@ -60,11 +62,11 @@ export class TravelChatbotApp {
     if (!message || message.trim().length === 0) {
       return {
         response: "Vui lòng nhập câu hỏi liên quan đến du lịch! Tôi có thể giúp bạn về nhà hàng, khách sạn, điểm tham quan, thời tiết và thông tin phương tiện di chuyển.",
-        metadata: { error: 'Empty message' }
+        metadata: { error: 'Empty message', sessionId: sessionId }
       };
     }
 
-    return await this.chatbot.chat(message.trim());
+    return await this.chatbot.chat(message.trim(), history, sessionId);
   }
 
   /**

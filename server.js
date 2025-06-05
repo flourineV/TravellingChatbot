@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(express.json());
@@ -50,7 +50,7 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    const { message } = req.body;
+    const { message, history = [], sessionId } = req.body;
 
     if (!message || message.trim().length === 0) {
       return res.json({
@@ -59,12 +59,20 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    const result = await chatbotApp.processMessage(message);
+    // Generate session ID if not provided (for web clients)
+    const clientSessionId = sessionId || `web_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Use memory-based conversation instead of external history
+    // External history is now only fallback for first message
+    const result = await chatbotApp.processMessage(message, history, clientSessionId);
 
     res.json({
       success: true,
       response: result.response,
-      metadata: result.metadata
+      metadata: {
+        ...result.metadata,
+        sessionId: clientSessionId
+      }
     });
 
   } catch (error) {

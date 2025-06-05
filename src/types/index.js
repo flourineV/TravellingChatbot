@@ -5,10 +5,13 @@
 // Travel query categories
 export const TRAVEL_CATEGORIES = {
   FOOD: 'food',
-  ACCOMMODATION: 'accommodation', 
+  ACCOMMODATION: 'accommodation',
   ATTRACTIONS: 'attractions',
   WEATHER: 'weather',
   TRANSPORTATION: 'transportation',
+  BUDGET: 'budget',
+  SAFETY: 'safety',
+  ITINERARY: 'itinerary',
   GENERAL: 'general'
 };
 
