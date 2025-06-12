@@ -50,7 +50,7 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    const { message } = req.body;
+    const { message, sessionId } = req.body;
 
     if (!message || message.trim().length === 0) {
       return res.json({
@@ -59,11 +59,12 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    const result = await chatbotApp.processMessage(message);
+    const result = await chatbotApp.processMessage(message, sessionId);
 
     res.json({
       success: true,
       response: result.response,
+      sessionId: result.sessionId,
       metadata: result.metadata
     });
 
@@ -76,13 +77,114 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Get conversation history
+app.get('/api/history/:sessionId', async (req, res) => {
+  try {
+    if (!isInitialized) {
+      return res.json({
+        success: false,
+        error: 'Chatbot chưa được khởi tạo.'
+      });
+    }
+
+    const { sessionId } = req.params;
+    const history = await chatbotApp.getHistory(sessionId);
+
+    res.json({
+      success: true,
+      sessionId,
+      history,
+      count: history.length
+    });
+
+  } catch (error) {
+    console.error('❌ History API error:', error.message);
+    res.json({
+      success: false,
+      error: 'Không thể lấy lịch sử hội thoại.'
+    });
+  }
+});
+
+// Clear conversation history
+app.delete('/api/history/:sessionId', async (req, res) => {
+  try {
+    if (!isInitialized) {
+      return res.json({
+        success: false,
+        error: 'Chatbot chưa được khởi tạo.'
+      });
+    }
+
+    const { sessionId } = req.params;
+    const cleared = await chatbotApp.clearHistory(sessionId);
+
+    res.json({
+      success: cleared,
+      sessionId,
+      message: cleared ? 'Lịch sử đã được xóa' : 'Không thể xóa lịch sử'
+    });
+
+  } catch (error) {
+    console.error('❌ Clear history API error:', error.message);
+    res.json({
+      success: false,
+      error: 'Không thể xóa lịch sử hội thoại.'
+    });
+  }
+});
+
+// Get session summary
+app.get('/api/summary/:sessionId', async (req, res) => {
+  try {
+    if (!isInitialized) {
+      return res.json({
+        success: false,
+        error: 'Chatbot chưa được khởi tạo.'
+      });
+    }
+
+    const { sessionId } = req.params;
+    const summary = await chatbotApp.getSummary(sessionId);
+
+    res.json({
+      success: true,
+      summary
+    });
+
+  } catch (error) {
+    console.error('❌ Summary API error:', error.message);
+    res.json({
+      success: false,
+      error: 'Không thể lấy thống kê hội thoại.'
+    });
+  }
+});
+
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    initialized: isInitialized,
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    const health = {
+      status: 'ok',
+      initialized: isInitialized,
+      timestamp: new Date().toISOString()
+    };
+
+    if (isInitialized) {
+      const memoryHealth = await chatbotApp.getMemoryHealth();
+      health.memory = memoryHealth;
+    }
+
+    res.json(health);
+
+  } catch (error) {
+    res.json({
+      status: 'error',
+      initialized: isInitialized,
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Serve the main page

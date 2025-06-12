@@ -18,9 +18,10 @@ export async function analyzeQuery(state) {
   try {
     const userMessage = state.messages[state.messages.length - 1];
     const query = userMessage.content;
+    const conversationHistory = state.conversationHistory || [];
 
-    // Analyze the query using the travel agent
-    const analysis = await travelAgent.analyzeQuery(query);
+    // Analyze the query using the travel agent with conversation context
+    const analysis = await travelAgent.analyzeQuery(query, conversationHistory);
 
     return {
       ...state,
@@ -146,22 +147,23 @@ export async function searchInformation(state) {
  */
 export async function generateResponse(state) {
   try {
-    const { currentQuery, searchResults, needsSearch } = state;
+    const { currentQuery, searchResults, needsSearch, conversationHistory } = state;
     let response;
 
     if (needsSearch && searchResults && searchResults.length > 0) {
-      // Generate response based on search results
+      // Generate response based on search results with conversation context
       response = await travelAgent.generateResponse(
         currentQuery.original,
-        searchResults
+        searchResults,
+        conversationHistory
       );
     } else if (needsSearch && (!searchResults || searchResults.length === 0)) {
       // Handle case where search was needed but no results found
-      response = await travelAgent.generateSimpleResponse(currentQuery.original);
+      response = await travelAgent.generateSimpleResponse(currentQuery.original, conversationHistory);
       response += "\n\n⚠️ Tôi không thể tìm thấy thông tin hiện tại về chủ đề này. Phản hồi trên dựa trên kiến thức chung.";
     } else {
-      // Generate simple response without search
-      response = await travelAgent.generateSimpleResponse(currentQuery.original);
+      // Generate simple response without search but with conversation context
+      response = await travelAgent.generateSimpleResponse(currentQuery.original, conversationHistory);
     }
 
     return {

@@ -7,6 +7,7 @@ import {
   checkFollowUp,
   handleError
 } from './nodes.js';
+import { RedisMemoryManager } from '../memory/redis-memory.js';
 
 /**
  * Travel Chatbot Workflow using LangGraph
@@ -16,6 +17,14 @@ import {
 const graphState = {
   messages: {
     value: (x, y) => x.concat(y),
+    default: () => []
+  },
+  sessionId: {
+    value: (x, y) => y ?? x,
+    default: () => null
+  },
+  conversationHistory: {
+    value: (x, y) => y ?? x,
     default: () => []
   },
   currentQuery: {
@@ -159,59 +168,91 @@ export function createTravelWorkflow() {
 export class TravelChatbot {
   constructor() {
     this.workflow = createTravelWorkflow();
-    this.conversationHistory = [];
+    this.memoryManager = new RedisMemoryManager();
+    this.isMemoryInitialized = false;
+  }
+
+  /**
+   * Initialize Redis memory
+   */
+  async initializeMemory() {
+    if (!this.isMemoryInitialized) {
+      this.isMemoryInitialized = await this.memoryManager.initialize();
+      if (!this.isMemoryInitialized) {
+        console.warn('⚠️ Redis memory not available, using fallback mode');
+      }
+    }
+    return this.isMemoryInitialized;
   }
 
   /**
    * Process a user message and return a response
    * @param {string} userMessage - User's message
+   * @param {string} sessionId - Session identifier (optional, will generate if not provided)
    * @returns {Promise<Object>} Response object
    */
-  async chat(userMessage) {
+  async chat(userMessage, sessionId = null) {
     try {
       console.log(`\n🚀 Processing message: "${userMessage}"`);
 
-      // Add user message to conversation history
-      this.conversationHistory.push({
-        role: 'user',
-        content: userMessage,
-        timestamp: new Date().toISOString()
-      });
+      // Initialize memory if not done
+      await this.initializeMemory();
 
-      // Create initial state
+      // Generate session ID if not provided
+      if (!sessionId) {
+        sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      // Get conversation history from Redis
+      const conversationHistory = await this.memoryManager.getContextMessages(sessionId);
+
+      // Add user message to Redis
+      const userMessage_obj = {
+        role: 'user',
+        content: userMessage
+      };
+      await this.memoryManager.addMessage(sessionId, userMessage_obj);
+
+      // Create initial state with conversation history
       const initialState = {
-        messages: [{ role: 'user', content: userMessage }]
+        messages: [{ role: 'user', content: userMessage }],
+        sessionId,
+        conversationHistory
       };
 
       // Run the workflow
       const result = await this.workflow.invoke(initialState);
 
       // Extract the final response
-      const response = result.finalResponse || "I'm sorry, I couldn't generate a response.";
+      const response = result.finalResponse || "Xin lỗi, tôi không thể tạo phản hồi cho câu hỏi này. Vui lòng thử lại hoặc hỏi câu khác.";
 
-      // Add assistant response to conversation history
-      this.conversationHistory.push({
+      // Add assistant response to Redis
+      const assistantMessage = {
         role: 'assistant',
         content: response,
-        timestamp: new Date().toISOString(),
         metadata: {
           category: result.currentQuery?.category,
           location: result.currentQuery?.location,
           searchResultsCount: result.searchResults?.length || 0,
           needsMoreInfo: result.needsMoreInfo
         }
-      });
+      };
+      await this.memoryManager.addMessage(sessionId, assistantMessage);
+
+      // Extend session TTL
+      await this.memoryManager.extendSession(sessionId);
 
       console.log('✅ Response generated successfully');
 
       return {
         response,
+        sessionId,
         metadata: {
           category: result.currentQuery?.category,
           location: result.currentQuery?.location,
           searchResultsCount: result.searchResults?.length || 0,
           needsMoreInfo: result.needsMoreInfo,
-          conversationLength: this.conversationHistory.length
+          memoryEnabled: this.isMemoryInitialized
         }
       };
 
@@ -220,60 +261,123 @@ export class TravelChatbot {
 
       const errorResponse = "Xin lỗi, tôi gặp phải lỗi không mong muốn. Vui lòng thử lại.";
 
-      this.conversationHistory.push({
-        role: 'assistant',
-        content: errorResponse,
-        timestamp: new Date().toISOString(),
-        metadata: { error: error.message }
-      });
+      // Save error response to Redis if possible
+      if (sessionId && this.isMemoryInitialized) {
+        const errorMessage = {
+          role: 'assistant',
+          content: errorResponse,
+          metadata: { error: error.message }
+        };
+        await this.memoryManager.addMessage(sessionId, errorMessage);
+      }
 
       return {
         response: errorResponse,
-        metadata: { error: error.message }
+        sessionId,
+        metadata: {
+          error: error.message,
+          memoryEnabled: this.isMemoryInitialized
+        }
       };
     }
   }
 
   /**
-   * Get conversation history
-   * @returns {Array} Conversation history
+   * Get conversation history for a session
+   * @param {string} sessionId - Session identifier
+   * @returns {Promise<Array>} Conversation history
    */
-  getHistory() {
-    return this.conversationHistory;
+  async getHistory(sessionId) {
+    if (!sessionId || !this.isMemoryInitialized) {
+      return [];
+    }
+    return await this.memoryManager.getConversationHistory(sessionId);
   }
 
   /**
-   * Clear conversation history
+   * Clear conversation history for a session
+   * @param {string} sessionId - Session identifier
    */
-  clearHistory() {
-    this.conversationHistory = [];
-    console.log('🗑️ Conversation history cleared');
+  async clearHistory(sessionId) {
+    if (!sessionId) {
+      console.log('⚠️ Cannot clear history: no session ID provided');
+      return false;
+    }
+
+    if (!this.isMemoryInitialized) {
+      console.log('⚠️ Cannot clear history: memory not initialized');
+      return false;
+    }
+
+    const result = await this.memoryManager.clearSession(sessionId);
+    if (result) {
+      console.log(`✅ History cleared for session: ${sessionId}`);
+    } else {
+      console.log(`❌ Failed to clear history for session: ${sessionId}`);
+    }
+    return result;
   }
 
   /**
-   * Get conversation summary
-   * @returns {Object} Summary statistics
+   * Get conversation summary for a session
+   * @param {string} sessionId - Session identifier
+   * @returns {Promise<Object>} Summary statistics
    */
-  getSummary() {
-    const userMessages = this.conversationHistory.filter(msg => msg.role === 'user');
-    const assistantMessages = this.conversationHistory.filter(msg => msg.role === 'assistant');
+  async getSummary(sessionId) {
+    if (!sessionId) {
+      return {
+        sessionId: 'unknown',
+        totalMessages: 0,
+        userMessages: 0,
+        assistantMessages: 0,
+        categoriesDiscussed: [],
+        locationsDiscussed: [],
+        startTime: null,
+        lastActivity: null,
+        memoryEnabled: this.isMemoryInitialized,
+        error: 'No session ID provided'
+      };
+    }
 
-    const categories = assistantMessages
-      .map(msg => msg.metadata?.category)
-      .filter(Boolean);
+    if (!this.isMemoryInitialized) {
+      return {
+        sessionId,
+        totalMessages: 0,
+        userMessages: 0,
+        assistantMessages: 0,
+        categoriesDiscussed: [],
+        locationsDiscussed: [],
+        startTime: null,
+        lastActivity: null,
+        memoryEnabled: false,
+        error: 'Memory not initialized'
+      };
+    }
 
-    const locations = assistantMessages
-      .map(msg => msg.metadata?.location)
-      .filter(Boolean);
+    return await this.memoryManager.getSessionStats(sessionId);
+  }
 
-    return {
-      totalMessages: this.conversationHistory.length,
-      userMessages: userMessages.length,
-      assistantMessages: assistantMessages.length,
-      categoriesDiscussed: [...new Set(categories)],
-      locationsDiscussed: [...new Set(locations)],
-      startTime: this.conversationHistory[0]?.timestamp,
-      lastActivity: this.conversationHistory[this.conversationHistory.length - 1]?.timestamp
-    };
+  /**
+   * Get memory health status
+   * @returns {Promise<Object>} Memory health status
+   */
+  async getMemoryHealth() {
+    if (!this.isMemoryInitialized) {
+      return {
+        status: 'disabled',
+        message: 'Memory not initialized'
+      };
+    }
+    return await this.memoryManager.healthCheck();
+  }
+
+  /**
+   * Close memory connections
+   */
+  async close() {
+    if (this.isMemoryInitialized) {
+      await this.memoryManager.close();
+      this.isMemoryInitialized = false;
+    }
   }
 }

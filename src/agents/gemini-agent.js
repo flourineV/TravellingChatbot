@@ -26,11 +26,18 @@ export class GeminiTravelAgent {
   /**
    * Analyze user query to extract travel intent and context
    * @param {string} query - User's travel query
+   * @param {Array} conversationHistory - Previous conversation messages
    * @returns {Promise<Object>} Analysis result
    */
-  async analyzeQuery(query) {
+  async analyzeQuery(query, conversationHistory = []) {
     try {
-      const prompt = QUERY_ANALYSIS_PROMPT.replace('{query}', query);
+      // Build context from conversation history
+      const contextPrompt = this.buildContextPrompt(conversationHistory);
+
+      const prompt = `${contextPrompt}
+
+${QUERY_ANALYSIS_PROMPT.replace('{query}', query)}`;
+
       const result = await this.model.generateContent(prompt);
       const response = result.response;
       const text = response.text();
@@ -51,16 +58,20 @@ export class GeminiTravelAgent {
    * Generate response based on search results
    * @param {string} originalQuery - Original user query
    * @param {Array} searchResults - Search results from Tavily
+   * @param {Array} conversationHistory - Previous conversation messages
    * @returns {Promise<string>} Generated response
    */
-  async generateResponse(originalQuery, searchResults) {
+  async generateResponse(originalQuery, searchResults, conversationHistory = []) {
     try {
-
+      // Build context from conversation history
+      const contextPrompt = this.buildContextPrompt(conversationHistory);
 
       // Format search results for the prompt
       const formattedResults = this.formatSearchResultsForPrompt(searchResults);
 
       const prompt = `${TRAVEL_ASSISTANT_SYSTEM_PROMPT}
+
+${contextPrompt}
 
 ${RESPONSE_GENERATION_PROMPT
   .replace('{originalQuery}', originalQuery)
@@ -82,13 +93,17 @@ ${RESPONSE_GENERATION_PROMPT
   /**
    * Generate a simple response without search (for basic queries)
    * @param {string} query - User query
+   * @param {Array} conversationHistory - Previous conversation messages
    * @returns {Promise<string>} Simple response
    */
-  async generateSimpleResponse(query) {
+  async generateSimpleResponse(query, conversationHistory = []) {
     try {
-
+      // Build context from conversation history
+      const contextPrompt = this.buildContextPrompt(conversationHistory);
 
       const prompt = `${TRAVEL_ASSISTANT_SYSTEM_PROMPT}
+
+${contextPrompt}
 
 User: ${query}
 
@@ -207,5 +222,25 @@ URL: ${result.url}
       .join('\n\n');
   }
 
+  /**
+   * Build context prompt from conversation history
+   * @param {Array} conversationHistory - Previous conversation messages
+   * @returns {string} Context prompt
+   */
+  buildContextPrompt(conversationHistory) {
+    if (!conversationHistory || conversationHistory.length === 0) {
+      return '';
+    }
 
+    const recentMessages = conversationHistory.slice(-6); // Last 6 messages for context
+    const contextMessages = recentMessages.map(msg => {
+      const role = msg.role === 'user' ? 'Người dùng' : 'Trợ lý';
+      return `${role}: ${msg.content}`;
+    }).join('\n');
+
+    return `NGỮ CẢNH CUỘC HỘI THOẠI TRƯỚC:
+${contextMessages}
+
+---`;
+  }
 }

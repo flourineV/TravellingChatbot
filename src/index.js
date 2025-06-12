@@ -50,9 +50,10 @@ export class TravelChatbotApp {
   /**
    * Process a user message
    * @param {string} message - User message
+   * @param {string} sessionId - Session identifier (optional)
    * @returns {Promise<Object>} Response object
    */
-  async processMessage(message) {
+  async processMessage(message, sessionId = null) {
     if (!this.isInitialized) {
       throw new Error('Chatbot not initialized. Call initialize() first.');
     }
@@ -60,20 +61,51 @@ export class TravelChatbotApp {
     if (!message || message.trim().length === 0) {
       return {
         response: "Vui lòng nhập câu hỏi liên quan đến du lịch! Tôi có thể giúp bạn về nhà hàng, khách sạn, điểm tham quan, thời tiết và thông tin phương tiện di chuyển.",
+        sessionId: sessionId,
         metadata: { error: 'Empty message' }
       };
     }
 
-    return await this.chatbot.chat(message.trim());
+    return await this.chatbot.chat(message.trim(), sessionId);
   }
 
   /**
-   * Get conversation history
-   * @returns {Array} Conversation history
+   * Get conversation history for a session
+   * @param {string} sessionId - Session identifier
+   * @returns {Promise<Array>} Conversation history
    */
-  getHistory() {
+  async getHistory(sessionId) {
     if (!this.isInitialized) return [];
-    return this.chatbot.getHistory();
+    return await this.chatbot.getHistory(sessionId);
+  }
+
+  /**
+   * Clear conversation history for a session
+   * @param {string} sessionId - Session identifier
+   * @returns {Promise<boolean>} Success status
+   */
+  async clearHistory(sessionId) {
+    if (!this.isInitialized) return false;
+    return await this.chatbot.clearHistory(sessionId);
+  }
+
+  /**
+   * Get session summary
+   * @param {string} sessionId - Session identifier
+   * @returns {Promise<Object>} Session summary
+   */
+  async getSummary(sessionId) {
+    if (!this.isInitialized) return {};
+    return await this.chatbot.getSummary(sessionId);
+  }
+
+  /**
+   * Get memory health status
+   * @returns {Promise<Object>} Memory health status
+   */
+  async getMemoryHealth() {
+    if (!this.isInitialized) return { status: 'disabled' };
+    return await this.chatbot.getMemoryHealth();
   }
 
   /**
