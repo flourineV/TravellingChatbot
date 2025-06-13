@@ -128,45 +128,52 @@ Assistant:`;
    */
   parseAnalysisResult(content) {
     try {
-      // Try to extract JSON from the response - more flexible regex
-      let jsonMatch = content.match(/\{[\s\S]*?\}/);
+      console.log('🔍 Parsing analysis content:', content.substring(0, 200) + '...');
+
+      let jsonStr = content;
+
+      // Remove markdown code blocks
+      jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+
+      // Fix double braces (common Gemini issue)
+      jsonStr = jsonStr.replace(/\{\{/g, '{').replace(/\}\}/g, '}');
+
+      // Extract JSON object
+      let jsonMatch = jsonStr.match(/\{[\s\S]*?\}/);
 
       if (!jsonMatch) {
-        // Try to find JSON in code blocks
-        jsonMatch = content.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-        if (jsonMatch) {
-          jsonMatch[0] = jsonMatch[1];
-        }
+        throw new Error('No JSON object found in response');
       }
 
-      if (!jsonMatch) {
-        // Try to find any object-like structure
-        jsonMatch = content.match(/\{[^}]*\}/);
-      }
+      jsonStr = jsonMatch[0];
 
-      if (jsonMatch) {
-        let jsonStr = jsonMatch[0];
+      // Clean up common issues
+      jsonStr = jsonStr.replace(/'/g, '"'); // Replace single quotes
+      jsonStr = jsonStr.replace(/(\w+):/g, '"$1":'); // Add quotes to keys
+      jsonStr = jsonStr.replace(/,\s*}/g, '}'); // Remove trailing commas
+      jsonStr = jsonStr.replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
 
-        // Clean up common issues
-        jsonStr = jsonStr.replace(/'/g, '"'); // Replace single quotes
-        jsonStr = jsonStr.replace(/(\w+):/g, '"$1":'); // Add quotes to keys
-        jsonStr = jsonStr.replace(/,\s*}/g, '}'); // Remove trailing commas
+      console.log('🔧 Cleaned JSON:', jsonStr);
 
-        const parsed = JSON.parse(jsonStr);
+      const parsed = JSON.parse(jsonStr);
 
         // Validate that it's a travel-related query
         if (!this.isValidTravelQuery(parsed)) {
           throw new Error('Query is not travel-related');
         }
 
+        console.log('✅ Parsed analysis:', parsed);
         return parsed;
-      }
-
-      throw new Error('No valid JSON found in analysis response');
 
     } catch (error) {
       console.error('❌ Could not parse analysis result:', error.message);
       console.error('❌ Original content:', content);
+
+      // Fallback for non-travel queries
+      if (content.includes('non_travel') || content.includes('not_travel_related')) {
+        throw new Error('Query is not travel-related');
+      }
+
       throw new Error(`Invalid query analysis: ${error.message}`);
     }
   }

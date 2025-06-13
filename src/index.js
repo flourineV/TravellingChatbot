@@ -117,14 +117,7 @@ export class TravelChatbotApp {
     }
   }
 
-  /**
-   * Get conversation summary
-   * @returns {Object} Summary statistics
-   */
-  getSummary() {
-    if (!this.isInitialized) return null;
-    return this.chatbot.getSummary();
-  }
+
 
   /**
    * Display welcome message
@@ -152,8 +145,8 @@ export class TravelChatbotApp {
   /**
    * Display conversation summary
    */
-  displaySummary() {
-    const summary = this.getSummary();
+  async displaySummary(sessionId) {
+    const summary = await this.getSummary(sessionId);
     if (!summary || summary.totalMessages === 0) {
       console.log('📊 No conversation history available.');
       return;
