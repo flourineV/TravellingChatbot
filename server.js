@@ -13,7 +13,19 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// CORS headers for cross-origin requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
 
 // Initialize chatbot
 let chatbotApp;
@@ -187,9 +199,22 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Serve the main page
+// API Info endpoint
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.json({
+    name: 'Travel Chatbot API',
+    version: '1.0.0',
+    status: 'running',
+    initialized: isInitialized,
+    endpoints: {
+      chat: 'POST /api/chat',
+      history: 'GET /api/history/:sessionId',
+      clearHistory: 'DELETE /api/history/:sessionId',
+      summary: 'GET /api/summary/:sessionId',
+      health: 'GET /api/health'
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Error handling middleware
@@ -222,14 +247,15 @@ async function startServer() {
   }
 
   app.listen(PORT, () => {
-    console.log('\n🌟 Travel Chatbot Server Started! 🌟');
+    console.log('\n🌟 Travel Chatbot API Server Started! 🌟');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`🌐 Server running at: http://localhost:${PORT}`);
+    console.log(`🌐 Server running on port: ${PORT}`);
     console.log(`🤖 Chatbot: Ready and initialized`);
-    console.log(`📊 API endpoint: http://localhost:${PORT}/api/chat`);
-    console.log(`🏥 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`📊 API endpoint: POST /api/chat`);
+    console.log(`🏥 Health check: GET /api/health`);
+    console.log(`📚 API info: GET /`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('💡 Open your browser and start chatting!');
+    console.log('🚀 Ready to serve API requests!');
     console.log('🛑 Press Ctrl+C to stop the server\n');
   });
 }
