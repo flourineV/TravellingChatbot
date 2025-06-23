@@ -1,17 +1,14 @@
-# 🌟 Travel Chatbot with Persistent Memory
+# Travel Chatbot with Persistent Memory
 
 Trợ lý du lịch AI thông minh với khả năng nhớ ngữ cảnh hội thoại, sử dụng LangChain/LangGraph và Upstash Redis.
 
-## ✨ Tính năng
+## Tính năng
 
-- 🤖 **AI Travel Assistant**: Trả lời câu hỏi về du lịch bằng tiếng Việt
-- 🧠 **Persistent Memory**: Nhớ ngữ cảnh hội thoại qua các phiên làm việc
-- 🔍 **Real-time Search**: Tìm kiếm thông tin thời gian thực với Tavily
-- 🌐 **Web Interface**: Giao diện web đẹp và dễ sử dụng
-- 📱 **Session Management**: Quản lý nhiều cuộc hội thoại độc lập
-- ☁️ **Serverless Ready**: Deploy dễ dàng lên Render với Upstash Redis
+- **AI Travel Assistant**: Trả lời câu hỏi về du lịch bằng tiếng Việt
+- **Persistent Memory**: Nhớ ngữ cảnh hội thoại qua các phiên làm việc
+- **Real-time Search**: Tìm kiếm thông tin thời gian thực với Tavily
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone Repository
 ```bash
@@ -38,68 +35,23 @@ TAVILY_API_KEY=your_tavily_api_key_here
 UPSTASH_REDIS_REST_URL=https://your-redis-url.upstash.io
 UPSTASH_REDIS_REST_TOKEN=your_token_here
 ```
-
-### 4. Get API Keys
-
-**Gemini API (FREE):**
-1. Vào [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Tạo API key miễn phí
-3. Copy vào `GEMINI_API_KEY`
-
-**Tavily Search:**
-1. Vào [Tavily.com](https://tavily.com)
-2. Đăng ký và lấy API key
-3. Copy vào `TAVILY_API_KEY`
-
-**Upstash Redis:**
-1. Vào [console.upstash.com](https://console.upstash.com)
-2. Create Database → Global
-3. Copy REST URL và Token
-
-### 5. Test Chatbot
+### Test Chatbot
 ```bash
 npm run test
 # hoặc
 node test-chatbot.js
 ```
-
-### 6. Start Web Server
-```bash
-npm start
-# hoặc
-npm run server
-```
-
-Mở http://localhost:3001 để sử dụng!
-
-## 🧪 Testing
-
-### Interactive Chat Test
-```bash
-npm run test
-```
-
 Tính năng test:
-- 💬 **Chat qua lại** với bot
-- 🧠 **Test memory**: Bot nhớ ngữ cảnh
-- 📚 **Xem lịch sử**: `history`
-- 📊 **Thống kê**: `summary`
-- 🗑️ **Xóa lịch sử**: `clear`
-- 🚪 **Thoát**: `exit`
+-  **Chat qua lại** với bot
+-  **Test memory**: Bot nhớ ngữ cảnh
+-  **Xem lịch sử**: `history`
+-  **Thống kê**: `summary`
+-  **Xóa lịch sử**: `clear`
+-  **Thoát**: `exit`
 
-### Example Conversation
-```
-💬 Bạn: Tôi muốn đi du lịch Đà Nẵng
-🤖 Bot: Đà Nẵng là một thành phố tuyệt vời...
 
-💬 Bạn: Có gì hay ở đó không?
-🤖 Bot: Ở Đà Nẵng có nhiều điểm tham quan... (nhớ ngữ cảnh!)
 
-💬 Bạn: Còn ăn gì ngon?
-🤖 Bot: Đà Nẵng nổi tiếng với... (vẫn nhớ về Đà Nẵng!)
-```
-
-## 🏗️ Architecture
+## Architecture
 
 ```
 User Input
@@ -119,7 +71,7 @@ Upstash Redis (Memory)
 Formatted Response
 ```
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 TravellingChatbot/
@@ -137,7 +89,7 @@ TravellingChatbot/
 └── index.js             # CLI interface
 ```
 
-## 🌐 API Endpoints
+## API Endpoints
 
 ### Chat
 ```
@@ -164,36 +116,7 @@ GET /api/summary/{sessionId}
 GET /api/health
 ```
 
-## 🚀 Deployment
-
-### Deploy to Render
-
-1. **Connect Repository** to Render
-2. **Set Environment Variables**:
-   ```
-   GEMINI_API_KEY=your_key
-   TAVILY_API_KEY=your_key
-   UPSTASH_REDIS_REST_URL=your_url
-   UPSTASH_REDIS_REST_TOKEN=your_token
-   ```
-3. **Deploy** - Render sẽ tự động build và deploy
-
-### Environment Variables for Production
-```env
-# Required
-GEMINI_API_KEY=your_gemini_api_key
-TAVILY_API_KEY=your_tavily_api_key
-UPSTASH_REDIS_REST_URL=your_upstash_url
-UPSTASH_REDIS_REST_TOKEN=your_upstash_token
-
-# Optional
-SESSION_TTL=3600
-MAX_MESSAGES_PER_SESSION=20
-CONTEXT_WINDOW_SIZE=10
-LANGCHAIN_TRACING_V2=false
-```
-
-## 🔧 Configuration
+## Configuration
 
 ### Memory Settings
 - `SESSION_TTL`: Session timeout (default: 1 hour)
@@ -204,57 +127,19 @@ LANGCHAIN_TRACING_V2=false
 - `TEMPERATURE`: Response creativity (default: 0.7)
 - `GEMINI_MODEL`: Gemini model (default: gemini-1.5-flash)
 
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**"Upstash Redis credentials not found"**
-- Kiểm tra `UPSTASH_REDIS_REST_URL` và `UPSTASH_REDIS_REST_TOKEN`
-
-**"Failed to connect to Upstash Redis"**
-- Kiểm tra internet connection
-- Verify Upstash credentials
-
-**"Gemini API error"**
-- Kiểm tra `GEMINI_API_KEY`
-- Verify API key chưa expire
-
-**"Tavily search failed"**
-- Kiểm tra `TAVILY_API_KEY`
-- Check API quota
-
-### Debug Mode
-Set environment variable:
-```env
-NODE_ENV=development
-```
-
-## 📚 Documentation
+## Documentation
 
 - [Redis Memory Implementation](./REDIS_MEMORY.md)
 - [API Documentation](./docs/api.md)
 - [Deployment Guide](./docs/deployment.md)
 
-## 🤝 Contributing
-
-1. Fork repository
-2. Create feature branch
-3. Make changes
-4. Test thoroughly
-5. Submit pull request
-
-## 📄 License
+## License
 
 MIT License - see LICENSE file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **LangChain/LangGraph** - AI workflow framework
 - **Google Gemini** - Free LLM API
 - **Tavily** - Real-time search API
 - **Upstash Redis** - Serverless Redis
-- **Render** - Easy deployment platform
-
----
-
-**Happy Traveling! 🌍✈️**
